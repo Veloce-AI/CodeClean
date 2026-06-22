@@ -1,0 +1,12 @@
+# Files excluded from the VSIX package
+
+.git/**
+.gitignore
+node_modules/**
+*.vsix
+DEVPLAN.md
+instruction.md
+tasks/**
+.vscode/settings.json
+
+# Keep everything else — the whole app ships in the extension

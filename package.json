@@ -1,0 +1,110 @@
+{
+  "name": "codeclean",
+  "displayName": "CodeClean — Code Quality Analyzer",
+  "description": "Find dead code, security issues, memory leaks, circular deps, complexity and 20 more checks — all locally, zero install, nothing ever uploaded.",
+  "version": "1.0.0",
+  "publisher": "VeloceAI",
+  "author": "VeloceAI <contact@veloceai.in>",
+  "license": "MIT",
+  "homepage": "https://github.com/Veloce-AI/CodeClean",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Veloce-AI/CodeClean.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Veloce-AI/CodeClean/issues"
+  },
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Linters",
+    "Other"
+  ],
+  "keywords": [
+    "code quality",
+    "static analysis",
+    "dead code",
+    "security",
+    "lint",
+    "complexity",
+    "memory leaks",
+    "circular dependencies",
+    "accessibility",
+    "code smells",
+    "clean code",
+    "refactoring"
+  ],
+  "icon": "logo.png",
+  "galleryBanner": {
+    "color": "#0a0a0c",
+    "theme": "dark"
+  },
+  "activationEvents": [],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "codeclean.open",
+        "title": "Open CodeClean",
+        "category": "CodeClean",
+        "icon": "$(shield)"
+      },
+      {
+        "command": "codeclean.openCurrentFolder",
+        "title": "Analyze Current Workspace",
+        "category": "CodeClean",
+        "icon": "$(search)"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "codeclean-container",
+          "title": "CodeClean",
+          "icon": "icon-activity.svg"
+        }
+      ]
+    },
+    "views": {
+      "codeclean-container": [
+        {
+          "type": "webview",
+          "id": "codeclean.mainView",
+          "name": "CodeClean"
+        }
+      ]
+    },
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "codeclean.open"
+        },
+        {
+          "command": "codeclean.openCurrentFolder"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "codeclean.open",
+          "group": "navigation",
+          "when": "false"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "codeclean.open",
+        "key": "ctrl+shift+q",
+        "mac": "cmd+shift+q"
+      }
+    ]
+  },
+  "scripts": {
+    "package": "vsce package",
+    "publish": "vsce publish"
+  },
+  "devDependencies": {
+    "@vscode/vsce": "^3.0.0"
+  }
+}
