@@ -2,8 +2,8 @@
   "name": "codeclean",
   "displayName": "CodeClean — Code Quality Analyzer",
   "description": "Find dead code, security issues, memory leaks, circular deps, complexity and 20 more checks — all locally, zero install, nothing ever uploaded.",
-  "version": "1.0.0",
-  "publisher": "VeloceAI",
+  "version": "1.0.2",
+  "publisher": "Veloce-AI",
   "author": "VeloceAI <contact@veloceai.in>",
   "license": "MIT",
   "homepage": "https://github.com/Veloce-AI/CodeClean",
@@ -55,6 +55,12 @@
         "title": "Analyze Current Workspace",
         "category": "CodeClean",
         "icon": "$(search)"
+      },
+      {
+        "command": "codeclean.openInBrowser",
+        "title": "Open CodeClean in Browser",
+        "category": "CodeClean",
+        "icon": "$(browser)"
       }
     ],
     "viewsContainers": {

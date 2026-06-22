@@ -1163,6 +1163,33 @@
 .light .file-drill-down { background: var(--bg1); }
 .file-table tr.expanded-row td { padding: 0; }
 
+/* VS Code tip banner */
+.vscode-tip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: var(--accbg2);
+  border: 1px solid rgba(99,102,241,0.2);
+  border-radius: 8px;
+  font-size: 11px;
+  color: var(--t2);
+  margin-bottom: 12px;
+  max-width: 540px;
+  width: 100%;
+}
+.vscode-tip-link {
+  background: none;
+  border: none;
+  color: var(--acc);
+  cursor: pointer;
+  font-size: 11px;
+  font-family: inherit;
+  text-decoration: underline;
+  padding: 0;
+}
+.vscode-tip-link:hover { opacity: 0.8; }
+
 /* Input hidden */
 #folder-input { display: none; }
 

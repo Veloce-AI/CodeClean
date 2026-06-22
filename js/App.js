@@ -96,11 +96,64 @@ function saveSettings(key, val) {
   localStorage.setItem('cc-settings', JSON.stringify(state.settings));
 }
 
+/* ── VS Code detection ───────────────────────────────── */
+const IS_VSCODE = !!window.IS_VSCODE;
+const vscodeApi  = IS_VSCODE ? (typeof acquireVsCodeApi !== 'undefined' ? acquireVsCodeApi() : null) : null;
+
+function postToExtension(msg) {
+  vscodeApi?.postMessage(msg);
+}
+
+// Listen for messages FROM the extension (files loaded, progress, etc.)
+if (IS_VSCODE) {
+  window.addEventListener('message', e => {
+    const msg = e.data;
+    if (!msg?.command) return;
+    switch (msg.command) {
+      case 'scanStart':
+        state.projectName = msg.folderName || 'Project';
+        state.phase = 'scanning';
+        state.files = [];
+        state.results = null;
+        state.scanLog = [];
+        state.scanProgress = { current: 0, total: 0, file: '', phase: 'Reading' };
+        renderApp();
+        break;
+      case 'scanProgress':
+        state.scanProgress.current = msg.count;
+        state.scanLog.push(msg.file);
+        updateScanningUI();
+        break;
+      case 'filesLoaded':
+        state.projectName = msg.folderName || 'Project';
+        handleVSCodeFiles(msg.files);
+        break;
+    }
+  });
+}
+
+async function handleVSCodeFiles(files) {
+  state.files = files;
+  state.scanProgress = { current: files.length, total: files.length, file: 'Running analysis…', phase: 'Analyzing' };
+  updateScanningUI();
+  await new Promise(r => setTimeout(r, 0));
+  const prevSnap = state.snapshot;
+  const results  = await runAnalysis(files);
+  state.results  = results;
+  const newScore = results.fileScores?.length
+    ? Math.round(results.fileScores.reduce((s, f) => s + f.score, 0) / results.fileScores.length) : 100;
+  if (prevSnap) window._prevSnapshot = prevSnap;
+  state.snapshot = { scannedAt: new Date().toISOString(), totalIssues: results.totalIssues, totalFiles: files.length, score: newScore };
+  saveTrend(newScore);
+  state.phase = 'results';
+  renderApp();
+  showToast(`Found ${results.totalIssues} issues across ${files.length} files · Score: ${newScore}/100`, 'info');
+}
+
 /* ── Entry Point ─────────────────────────────────────── */
 function initApp() {
   initTheme();
   try { state.ignorePatterns = JSON.parse(localStorage.getItem('cc-ignore') || '[]'); } catch(_) {}
-  // Restore snapshot diff across page refresh
   try {
     const snap = sessionStorage.getItem('cc-snap');
     const prev = sessionStorage.getItem('cc-prev-snap');
@@ -364,10 +417,16 @@ function renderLanding() {
         </div>
       `}
 
+      ${IS_VSCODE ? `
+        <div class="vscode-tip">
+          <span style="font-size:13px">💡</span>
+          <span>For drag-and-drop folder scanning, <button class="vscode-tip-link" onclick="postToExtension({command:'openInBrowser'})">open in browser</button> instead.</span>
+        </div>
+      ` : ''}
       <div class="landing-features">
         <div class="landing-feature">${svgCheck()} Zero install</div>
         <div class="landing-feature">${svgCheck()} No data leaves your machine (local mode)</div>
-        <div class="landing-feature">${svgCheck()} 9 quality checks</div>
+        <div class="landing-feature">${svgCheck()} 20 quality checks</div>
         <div class="landing-feature">${svgCheck()} Security · Smells · Dead Code · More</div>
       </div>
     </div>
@@ -1069,8 +1128,12 @@ function readDirEntry(dirEntry) {
    (with webkitdirectory the browser delays the change event while enumerating,
     so the user sees nothing for several seconds on large repos) */
 async function openFolderPicker() {
+  // Inside VS Code webview — use native VS Code file picker via message
+  if (IS_VSCODE) {
+    postToExtension({ command: 'pickFolder' });
+    return;
+  }
   if (!window.showDirectoryPicker) {
-    // Fallback for browsers without FSAPI
     document.getElementById('folder-input')?.click();
     return;
   }

@@ -488,24 +488,29 @@ CodeClean/
 
 ## VS Code Extension
 
-### Publishing to VS Code Marketplace
+[![Install for VS Code](https://img.shields.io/badge/Install%20for%20VS%20Code-6366f1?style=for-the-badge&logo=visualstudiocode&logoColor=white)](https://marketplace.visualstudio.com/items?itemName=Veloce-AI.codeclean)
 
-```bash
-# Install vsce
-npm install -g @vscode/vsce
+Install directly from the VS Code Marketplace or search **"CodeClean"** in the Extensions panel (`Ctrl+Shift+X`).
 
-# Package the extension
-vsce package
-
-# Publish (requires publisher account at marketplace.visualstudio.com)
-vsce publish
-```
+The extension adds a **CodeClean icon in the Activity Bar** (left sidebar). Click it to choose:
+- **Open in VS Code Panel** — uses VS Code's native file picker, no browser needed
+- **Open in Browser** — opens a local server in Chrome/Edge with full drag-and-drop support
 
 ### Running Locally in VS Code
 
-Press `F5` in VS Code with the CodeClean folder open → Extension Development Host opens → `Ctrl+Shift+P` → **"Open CodeClean"**.
+Press `F5` in VS Code with the CodeClean folder open → Extension Development Host opens → click the CodeClean icon in the Activity Bar.
 
-Or install from VSIX: `Extensions → ··· → Install from VSIX → codeclean-1.0.0.vsix`
+Or install from VSIX: `Extensions → ··· → Install from VSIX → codeclean-1.0.1.vsix`
+
+### Running via index.html (no extension needed)
+
+| Method | Steps | Requires |
+|---|---|---|
+| **start.bat** | Double-click `start.bat` | Python 3 or Node.js |
+| **VS Code Live Server** | Right-click `index.html` → Open with Live Server | Live Server extension |
+| **Firefox** | File → Open File → `index.html` | Firefox only |
+
+> **Chrome / Edge**: These browsers block local HTML files directly. Use `start.bat` or Live Server — both start a tiny local server that Chrome accepts.
 
 ---
 
