@@ -221,14 +221,23 @@ function exportSARIF() {
 }
 
 /* ── Utils ───────────────────────────────────────────── */
+/* ── Download helper — works in browser + VS Code webview ── */
 function downloadBlob(content, type, filename) {
+  if (window.IS_VSCODE && window.vscodeApi) {
+    // VS Code webview: send to extension which uses native save dialog
+    window.vscodeApi.postMessage({ command: 'saveFile', content, filename, type });
+    return;
+  }
+  // Browser: standard blob download
   const blob = new Blob([content], { type });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
   a.href = url;
   a.download = filename;
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(url);
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function dateStamp() {
@@ -237,5 +246,7 @@ function dateStamp() {
 
 function escHtml(str) {
   if (!str) return '';
-  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }

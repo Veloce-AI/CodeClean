@@ -104,6 +104,31 @@ async function handleMessage(message, webview, context) {
       break;
     }
 
+    case 'saveFile': {
+      const extMap = {
+        'application/json': [{ label:'JSON', extensions:['json'] }],
+        'text/html':        [{ label:'HTML', extensions:['html'] }],
+        'application/json_sarif': [{ label:'SARIF', extensions:['sarif','json'] }],
+      };
+      const saveUri = await vscode.window.showSaveDialog({
+        defaultUri: vscode.Uri.file(
+          path.join(require('os').homedir(), 'Desktop', message.filename)
+        ),
+        filters: extMap[message.type] || { 'All Files': ['*'] },
+      });
+      if (!saveUri) return;
+      fs.writeFileSync(saveUri.fsPath, message.content, 'utf8');
+      vscode.window.showInformationMessage(
+        `✓ Saved: ${path.basename(saveUri.fsPath)}`,
+        'Open Folder'
+      ).then(choice => {
+        if (choice === 'Open Folder') {
+          vscode.commands.executeCommand('revealFileInOS', saveUri);
+        }
+      });
+      break;
+    }
+
     case 'openInBrowser': {
       const url = `http://localhost:${serverPort}`;
       vscode.env.openExternal(vscode.Uri.parse(url));

@@ -98,10 +98,11 @@ function saveSettings(key, val) {
 
 /* ── VS Code detection ───────────────────────────────── */
 const IS_VSCODE = !!window.IS_VSCODE;
-const vscodeApi  = IS_VSCODE ? (typeof acquireVsCodeApi !== 'undefined' ? acquireVsCodeApi() : null) : null;
+// Expose globally so export.js can access it
+window.vscodeApi = IS_VSCODE && typeof acquireVsCodeApi !== 'undefined' ? acquireVsCodeApi() : null;
 
 function postToExtension(msg) {
-  vscodeApi?.postMessage(msg);
+  window.vscodeApi?.postMessage(msg);
 }
 
 // Listen for messages FROM the extension (files loaded, progress, etc.)
@@ -227,9 +228,6 @@ function renderTopbar() {
           <button class="btn btn-sm" onclick="newScan()" style="background:rgba(255,95,95,0.12);color:var(--red);border:1px solid rgba(255,95,95,0.25);gap:5px" title="Clear this scan and start fresh">
             <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
             Clear
-          </button>
-          <button class="btn btn-outline btn-sm" id="btn-export-json">
-            ${svgExport()} Export
           </button>
         ` : ''}
         <button class="btn-icon" onclick="showCustomRulesModal()" title="Custom rules — define your own regex patterns${loadCustomRules().length ? ' (' + loadCustomRules().length + ' active)' : ''}" style="${loadCustomRules().length ? 'color:var(--purple)' : ''}">
@@ -1553,29 +1551,6 @@ function attachHandlers() {
   const fi = document.getElementById('folder-input');
   if (fi) fi.addEventListener('change', handleFolderInput);
 
-  document.getElementById('btn-export-json')?.addEventListener('click', () => {
-    // Show a tiny dropdown with JSON / HTML options
-    const btn = document.getElementById('btn-export-json');
-    if (!btn) return;
-    const existing = document.getElementById('export-menu');
-    if (existing) { existing.remove(); return; }
-    const menu = document.createElement('div');
-    menu.id = 'export-menu';
-    menu.style.cssText = 'position:fixed;background:var(--bg2);border:1px solid var(--border);border-radius:9px;padding:6px;z-index:9999;min-width:140px;box-shadow:0 8px 24px rgba(0,0,0,0.4)';
-    const rect = btn.getBoundingClientRect();
-    menu.style.top = (rect.bottom + 6) + 'px';
-    menu.style.right = (window.innerWidth - rect.right) + 'px';
-    menu.innerHTML = `
-      <div onclick="exportJSON();document.getElementById('export-menu')?.remove()" style="padding:8px 12px;font-size:11px;cursor:pointer;border-radius:6px;color:var(--t1)" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">📄 Export JSON</div>
-      <div onclick="exportHTML();document.getElementById('export-menu')?.remove()" style="padding:8px 12px;font-size:11px;cursor:pointer;border-radius:6px;color:var(--t1)" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">🌐 Export HTML Report</div>
-      <div onclick="exportSARIF();document.getElementById('export-menu')?.remove()" style="padding:8px 12px;font-size:11px;cursor:pointer;border-radius:6px;color:var(--t1)" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">🔍 Export SARIF (GitHub)</div>
-      <div onclick="window.print();document.getElementById('export-menu')?.remove()" style="padding:8px 12px;font-size:11px;cursor:pointer;border-radius:6px;color:var(--t1)" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">🖨️ Print / Save PDF</div>
-    `;
-    document.body.appendChild(menu);
-    setTimeout(() => document.addEventListener('click', function h(e) {
-      if (!menu.contains(e.target) && e.target !== btn) { menu.remove(); document.removeEventListener('click', h); }
-    }), 50);
-  });
 }
 
 /* ── Toast ───────────────────────────────────────────── */
@@ -1743,6 +1718,148 @@ function hlLine(rawLine, lang) {
       return escHtml(part);
     }).join('');
   }).join('');
+}
+
+/* ── PDF Export — clean light-themed print page ─────── */
+function exportPDF() {
+  if (!state.results) return;
+  const r = state.results;
+
+  const SEV_COLOR  = { critical:'#dc2626', high:'#dc2626', medium:'#d97706', low:'#2563eb', info:'#6b7280' };
+  const SEV_BG     = { critical:'#fef2f2', high:'#fef2f2', medium:'#fffbeb', low:'#eff6ff',  info:'#f9fafb' };
+
+  const allIssues = [
+    ...(r.security     ||[]).map(i=>({...i,_cat:'Security'})),
+    ...(r.deadCode     ||[]).map(i=>({...i,_cat:'Dead Code'})),
+    ...(r.errorIssues  ||[]).map(i=>({...i,_cat:'Error Handling'})),
+    ...(r.complexity   ||[]).map(i=>({...i,_cat:'Complexity'})),
+    ...(r.cogCx        ||[]).map(i=>({...i,_cat:'Cognitive'})),
+    ...(r.langIssues   ||[]).map(i=>({...i,_cat:'Lang Pattern'})),
+    ...(r.patternIssues||[]).map(i=>({...i,_cat:'Code Pattern'})),
+    ...(r.smells       ||[]).map(i=>({...i,_cat:'Code Smell'})),
+    ...(r.duplicates   ||[]).map(i=>({...i,_cat:'Duplicate'})),
+    ...(r.memoryIssues ||[]).map(i=>({...i,_cat:'Memory'})),
+    ...(r.perfIssues   ||[]).map(i=>({...i,_cat:'Performance'})),
+    ...(r.a11yIssues   ||[]).map(i=>({...i,_cat:'Accessibility'})),
+    ...(r.commentRot   ||[]).map(i=>({...i,_cat:'Comment Rot'})),
+    ...(r.importIssues ||[]).map(i=>({...i,_cat:'Import'})),
+    ...(r.circular     ||[]).map(i=>({...i,_cat:'Circular'})),
+    ...(r.typeIssues   ||[]).map(i=>({...i,_cat:'Type Safety'})),
+  ].sort((a,b) => ['critical','high','medium','low','info'].indexOf(a.severity) - ['critical','high','medium','low','info'].indexOf(b.severity));
+
+  const score = r.fileScores?.length
+    ? Math.round(r.fileScores.reduce((s,f)=>s+f.score,0)/r.fileScores.length) : 100;
+  const scoreColor = score>=75?'#16a34a':score>=50?'#ca8a04':score>=30?'#d97706':'#dc2626';
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CodeClean Report — ${escHtml(state.projectName)}</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Segoe UI',system-ui,sans-serif; background:#fff; color:#111; font-size:13px; line-height:1.5; }
+  .header { background:#1e1e2e; color:#fff; padding:28px 32px; display:flex; align-items:center; justify-content:space-between; }
+  .header-left h1 { font-size:22px; font-weight:800; letter-spacing:-0.02em; }
+  .header-left p  { font-size:12px; color:#8b8b9a; margin-top:4px; }
+  .score-chip { background:#fff; border-radius:10px; padding:10px 18px; text-align:center; min-width:80px; }
+  .score-chip .num { font-size:28px; font-weight:800; color:${scoreColor}; line-height:1; }
+  .score-chip .lbl { font-size:9px; color:#666; text-transform:uppercase; letter-spacing:0.06em; }
+  .stats { display:flex; gap:0; background:#f8f9fa; border-bottom:1px solid #e5e7eb; }
+  .stat { flex:1; padding:14px 20px; text-align:center; border-right:1px solid #e5e7eb; }
+  .stat:last-child { border-right:none; }
+  .stat .val { font-size:20px; font-weight:700; }
+  .stat .lbl { font-size:10px; color:#6b7280; text-transform:uppercase; margin-top:2px; }
+  .section-title { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:#6b7280; padding:16px 24px 8px; border-top:1px solid #e5e7eb; margin-top:8px; }
+  .issue { display:flex; gap:12px; align-items:flex-start; padding:10px 24px; border-bottom:1px solid #f3f4f6; page-break-inside:avoid; }
+  .issue:hover { background:#f9fafb; }
+  .sev-badge { font-size:9px; font-weight:700; padding:2px 7px; border-radius:4px; text-transform:uppercase; white-space:nowrap; flex-shrink:0; margin-top:2px; }
+  .cat-badge { font-size:9px; color:#6b7280; background:#f3f4f6; padding:2px 6px; border-radius:4px; flex-shrink:0; margin-top:2px; white-space:nowrap; }
+  .issue-body { flex:1; min-width:0; }
+  .issue-title { font-size:12px; font-weight:500; color:#111; }
+  .issue-file  { font-size:10px; color:#6b7280; font-family:monospace; margin-top:2px; }
+  .issue-tip   { font-size:10px; color:#16a34a; margin-top:3px; }
+  .issue-code  { font-size:10px; font-family:monospace; background:#f8f9fa; border:1px solid #e5e7eb; border-radius:4px; padding:4px 8px; margin-top:5px; color:#b45309; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%; }
+  .files-table { width:100%; border-collapse:collapse; margin:0 24px; width:calc(100% - 48px); }
+  .files-table th { font-size:9px; font-weight:700; text-transform:uppercase; color:#6b7280; padding:8px 10px; border-bottom:2px solid #e5e7eb; text-align:left; }
+  .files-table td { padding:8px 10px; border-bottom:1px solid #f3f4f6; font-size:11px; }
+  .files-table tr:nth-child(even) td { background:#f9fafb; }
+  .score-cell { font-weight:700; }
+  .footer { text-align:center; padding:20px; font-size:10px; color:#9ca3af; border-top:1px solid #e5e7eb; margin-top:16px; }
+  @media print {
+    body { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .header { -webkit-print-color-adjust:exact; }
+    .issue { page-break-inside:avoid; }
+    .section-title { page-break-after:avoid; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <h1>✓ CodeClean Report</h1>
+    <p>${escHtml(state.projectName)} · ${state.files.length} files · ${new Date().toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'})}</p>
+  </div>
+  <div class="score-chip">
+    <div class="num">${score}</div>
+    <div class="lbl">Score /100</div>
+  </div>
+</div>
+
+<div class="stats">
+  <div class="stat"><div class="val" style="color:${allIssues.length>0?'#dc2626':'#16a34a'}">${allIssues.length}</div><div class="lbl">Total Issues</div></div>
+  <div class="stat"><div class="val" style="color:#dc2626">${allIssues.filter(i=>i.severity==='high'||i.severity==='critical').length}</div><div class="lbl">High / Critical</div></div>
+  <div class="stat"><div class="val" style="color:#16a34a">${r.cleanFiles||0}</div><div class="lbl">Clean Files</div></div>
+  <div class="stat"><div class="val">${state.files.length}</div><div class="lbl">Total Files</div></div>
+  <div class="stat"><div class="val">${r.langCount||0}</div><div class="lbl">Languages</div></div>
+</div>
+
+<div class="section-title">All Issues — sorted by severity</div>
+${allIssues.slice(0,200).map(i=>`
+<div class="issue">
+  <span class="sev-badge" style="background:${SEV_BG[i.severity]||'#f9fafb'};color:${SEV_COLOR[i.severity]||'#666'}">${i.severity||'info'}</span>
+  <span class="cat-badge">${escHtml(i._cat)}</span>
+  <div class="issue-body">
+    <div class="issue-title">${escHtml(i.title||i.message||'')}</div>
+    ${i.file?`<div class="issue-file">${escHtml(i.file)}${i.line?':'+i.line:''}</div>`:''}
+    ${i.snippet?`<div class="issue-code">${escHtml(i.snippet)}</div>`:''}
+    ${i.suggestion?`<div class="issue-tip">💡 ${escHtml(i.suggestion)}</div>`:''}
+  </div>
+</div>`).join('')}
+
+${r.fileScores?.length ? `
+<div class="section-title" style="margin-top:16px">File Health Scores</div>
+<div style="padding:0 24px 16px">
+<table class="files-table">
+  <thead><tr><th>File</th><th>Score</th><th>Issues</th><th>Lines</th></tr></thead>
+  <tbody>
+  ${r.fileScores.slice(0,40).map(f=>`
+  <tr>
+    <td style="font-family:monospace;font-size:10px">${escHtml(f.path)}</td>
+    <td class="score-cell" style="color:${f.score>=75?'#16a34a':f.score>=50?'#ca8a04':f.score>=30?'#d97706':'#dc2626'}">${f.score}</td>
+    <td>${f.issues}</td>
+    <td>${f.lines||'—'}</td>
+  </tr>`).join('')}
+  </tbody>
+</table>
+</div>` : ''}
+
+<div class="footer">Generated by CodeClean · ${new Date().toISOString()} · veloceai.in</div>
+
+<script>window.onload = () => setTimeout(() => window.print(), 400);</script>
+</body>
+</html>`;
+
+  const win = window.open('', '_blank');
+  if (win) {
+    win.document.write(html);
+    win.document.close();
+  } else {
+    // Fallback if popup blocked — download as HTML
+    downloadBlob(html, 'text/html', `codeclean-${state.projectName||'report'}-${dateStamp()}-print.html`);
+    showToast('Popup blocked — HTML file downloaded instead. Open it and print.', 'info');
+  }
 }
 
 /* ── SVG Icons ───────────────────────────────────────── */
